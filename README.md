@@ -1,107 +1,61 @@
-# Service Template
+# Project Service
 
-Стандартный шаблон проекта на SpringBoot
+## Описание
 
-# Использованные технологии
+Микросервис для управления проектами в веб-приложении **CorporationX**. Отвечает за создание и организацию проектов, сбор команды для их реализации, открытие стажировок (чтобы начинающие специалисты могли поработать над реальными проектами под руководством ментора), а также размещение вакансий для поиска специалистов.
 
-* [Spring Boot](https://spring.io/projects/spring-boot) – как основной фрэймворк
-* [PostgreSQL](https://www.postgresql.org/) – как основная реляционная база данных
-* [Redis](https://redis.io/) – как кэш и очередь сообщений через pub/sub
-* [testcontainers](https://testcontainers.com/) – для изолированного тестирования с базой данных
-* [Liquibase](https://www.liquibase.org/) – для ведения миграций схемы БД
-* [Gradle](https://gradle.org/) – как система сборки приложения
+## Реализованные фичи
 
-# База данных
+### Jacoco для project_service
+В сервис подключён и настроен JaCoCo (Java Code Coverage) — инструмент для измерения покрытия кода тестами. Генерирует отчёты о покрытии (общий процент, покрытие по классам, методам и строкам кода), которые помогают оценить эффективность тестирования и выявить непокрытые участки кода.
 
-* База поднимается в отдельном сервисе [infra](../infra)
-* Redis поднимается в единственном инстансе тоже в [infra](../infra)
-* Liquibase сам накатывает нужные миграции на голый PostgreSql при старте приложения
-* В тестах используется [testcontainers](https://testcontainers.com/), в котором тоже запускается отдельный инстанс
-  postgres
-* В коде продемонстрирована работа как с JdbcTemplate, так и с JPA (Hibernate)
+- [`build.gradle.kts`](build.gradle.kts) — подключён плагин `jacoco`, настроена генерация отчёта (`jacocoTestReport`) в форматах XML и HTML, автоматически запускается после тестов
 
-# Как начать разработку начиная с шаблона?
+**Технологии:** JaCoCo (Java Code Coverage)
 
-1. Сначала нужно склонировать этот репозиторий
+## CI
 
-```shell
-git clone https://github.com/FAANG-School/ServiceTemplate
+Настроен GitHub Actions пайплайн для проверки Pull Request'ов в ветку `werewolf-master-stream8`: сборка проекта, прогон тестов, автоматический комментарий в PR при падении сборки.
+
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+
+## Стек
+
+- Java 17
+- Spring Boot 3
+- Spring Data JPA
+- PostgreSQL
+- Redis
+- Liquibase
+- MapStruct
+- Feign Client
+- Amazon S3 SDK
+- Testcontainers (PostgreSQL, Redis)
+- Checkstyle
+- JaCoCo
+- JUnit 5, AssertJ
+
+## Запуск
+
+### Предварительные требования
+- Docker и Docker Compose
+- JDK 17
+
+### Шаги
+
+1. Поднять инфраструктуру (Postgres, Redis, MinIO, Kafka):
+```bash
+git clone https://github.com/Erik18999/infra.git
+cd infra
+./run.sh
 ```
-
-2. Далее удаляем служебную директорию для git
-
-```shell
-# Переходим в корневую директорию проекта
-cd ServiceTemplate
-rm -rf .git
+2. Склонировать и запустить сам сервис (порт 8082):
+```bash
+git clone https://github.com/Erik18999/project_service.git
+cd project_service
 ```
+Открыть проект в IntelliJ IDEA и запустить [`ProjectServiceApplication`](src/main/java/faang/school/projectservice/ProjectServiceApplication.java).
 
-3. Далее нужно создать совершенно пустой репозиторий в github/gitlab
+## Swagger UI
 
-4. Создаём новый репозиторий локально и коммитим изменения
-
-```shell
-git init
-git remote add origin <link_to_repo>
-git add .
-git commit -m "<msg>"
-```
-
-Готово, можно начинать работу!
-
-# Как запустить локально?
-
-Сначала нужно развернуть базу данных из директории [infra](../infra)
-
-Далее собрать gradle проект
-
-```shell
-# Нужно запустить из корневой директории, где лежит build.gradle.kts
-gradle build
-```
-
-Запустить jar'ник
-
-```shell
-java -jar build/libs/ServiceTemplate-1.0.jar
-```
-
-Но легче всё это делать через IDE
-
-# Код
-
-RESTful приложения калькулятор с единственным endpoint'ом, который принимает 2 числа и выдает результаты их сложения,
-вычитаяни, умножения и деления
-
-* Обычная трёхслойная
-  архитектура – [Controller](src/main/java/faang/school/servicetemplate/controller), [Service](src/main/java/faang/school/servicetemplate/service), [Repository](src/main/java/faang/school/servicetemplate/repository)
-* Слой Repository реализован и на jdbcTemplate, и на JPA (Hibernate)
-* Написан [GlobalExceptionHandler](src/main/java/faang/school/servicetemplate/controller/GlobalExceptionHandler.java)
-  который умеет возвращать ошибки в формате `{"code":"CODE", "message": "message"}`
-* Используется TTL кэширование вычислений
-  в [CalculationTtlCacheService](src/main/java/faang/school/servicetemplate/service/cache/CalculationTtlCacheService.java)
-* Реализован простой Messaging через [Redis pub/sub](https://redis.io/docs/manual/pubsub/)
-  * [Конфигурация](src/main/java/faang/school/servicetemplate/config/RedisConfig.java) –
-    сетапится [RedisTemplate](https://docs.spring.io/spring-data/redis/docs/current/api/org/springframework/data/redis/core/RedisTemplate.html) –
-    класс, для удобной работы с Redis силами Spring
-  * [Отправитель](src/main/java/faang/school/servicetemplate/service/messaging/RedisCalculationPublisher.java) – генерит
-    рандомные запросы и отправляет в очередь
-  * [Получатель](src/main/java/faang/school/servicetemplate/service/messaging/RedisCalculationSubscriber.java) –
-    получает запросы и отправляет задачи асинхронно выполняться
-    в [воркер](src/main/java/faang/school/servicetemplate/service/worker/CalculationWorker.java)
-
-# Тесты
-
-Написаны только для единственного REST endpoint'а
-* SpringBootTest
-* MockMvc
-* Testcontainers
-* AssertJ
-* JUnit5
-* Parameterized tests
-
-# TODO
-
-* Dockerfile, который подключается к сети запущенной postgres в docker-compose
-* Redis connectivity
-* ...
+http://localhost:8082/swagger-ui.html
